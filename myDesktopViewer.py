@@ -175,7 +175,7 @@ class myDesktopViewer(QMainWindow):
 
     def connectionStart(self):
         self.client = RDCFactory(display=self.display, password='1234')
-        reactor.connectTCP('192.168.1.103', 5000, self.client)
+        reactor.connectTCP('127.0.0.1', 5000, self.client)
         
     def connectionStop(self):
         reactor.stop( )

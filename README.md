@@ -1,3 +1,12 @@
+Fork by Bookaa
+==============
+
+fix some bug on Mac OS.
+
+* run on Python2
+* install Quartz: pip install pyobjc-framework-Quartz
+
+
 myDesktop
 =========
 

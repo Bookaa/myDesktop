@@ -6,10 +6,10 @@ if platform == 'lin':
     from Xlib import X
     from Xlib.ext.xtest import fake_input
 
-elif platform == 'mac':
+elif sys.platform == 'darwin':
     from Quartz import *
     from AppKit import NSEvent
-    pressID =   [None, kCGEventLeftMothe,
+    pressID =   [None, kCGEventLeftMouseDown,
                 kCGEventRightMouseDown, kCGEventOtherMouseDown]
     releaseID = [None, kCGEventLeftMouseUp,
                 kCGEventRightMouseUp, kCGEventOtherMouseUp]
@@ -180,7 +180,7 @@ class x11_Keyboard:
 #------------#
 ## Mac OS X ##
 #------------#
-class PyMouse:
+class mac_Mouse:
     def press(self, x, y, button=1):
         event = CGEventCreateMouseEvent(None,
                                         pressID[button],
@@ -267,7 +267,7 @@ if platform == 'lin':
     class Mouse(x11_Mouse): pass
     class Keyboard(x11_Keyboard): pass
 
-elif platform == 'mac':
+elif sys.platform == 'darwin':
     class Mouse(mac_Mouse):pass
     class Keyboard(mac_Keyboard): pass
 

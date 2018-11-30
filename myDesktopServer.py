@@ -131,7 +131,7 @@ class RDCServerGUI(QDialog):
         # Setting style
         QApplication.setStyle(QStyleFactory.create('cleanlooks'))
         QApplication.setPalette(QApplication.style().standardPalette())
-        self.setStyleSheet(open(os.path.dirname(__file__) + '/styleSheet.qss', 'r').read( ))
+        self.setStyleSheet(open(os.path.dirname(os.path.realpath(__file__)) + '/styleSheet.qss', 'r').read( ))
 
         # Label
         self.hostLab  = QLabel('')
@@ -146,6 +146,7 @@ class RDCServerGUI(QDialog):
         self.addrEdit.setText( getIP())
         self.addrEdit.setEnabled(False)
         self.passwdEdit = QLineEdit( )
+        self.passwdEdit.setText('1234')
         formLayout.addRow(QLabel('Address'),  self.addrEdit)
         formLayout.addRow(QLabel('Port'),     self.portEdit)
         formLayout.addRow(QLabel('Password'), self.passwdEdit)
