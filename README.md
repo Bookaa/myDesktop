@@ -4,7 +4,16 @@ Fork by Bookaa
 fix some bug on Mac OS.
 
 * run on Python2
-* install Quartz: pip install pyobjc-framework-Quartz
+* install anaconda2-2.4.1, this include PyQt4
+    pyenv install anaconda2-2.4.1
+    pyenv global anaconda2-2.4.1
+* pip install twisted
+
+* install Quartz:
+    pip install pyobjc-framework-Quartz
+
+* pip install service_identity
+* pip install --upgrade google-auth-oauthlib
 
 
 myDesktop

@@ -153,7 +153,7 @@ class x11_Mouse:
     def screen_size(self):
         width  = self.display.screen( ).width_in_pixels
         height = self.display.screen( ).height_in_pixels
-        return width, heightwe
+        return width, height
 
 class x11_Keyboard: 
     def __init__(self):

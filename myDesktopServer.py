@@ -34,6 +34,7 @@ class rdcProtocol(serverProtocol.RDCServerProtocol):
         self._maxHeight = QApplication.desktop( ).size( ).height( )
         self.keyboard   = input.Keyboard( )
         self.mouse      = input.Mouse( )
+        self.buffer_xy = (800,600)
 
     def handleKeyEvent(self, key, flag=None):
         '''
@@ -46,6 +47,9 @@ class rdcProtocol(serverProtocol.RDCServerProtocol):
         self.keyboard.release(key)
 
     def handleMouseEvent(self, x, y, buttonmask=0, flag=None):
+        (width, height) = self.buffer_xy
+        x = x * self._maxWidth / width
+        y = y * self._maxHeight / height
         print(x, y, buttonmask, flag)
         if flag == 5:   # move mouse event 
             self.mouse.move(x, y)
@@ -74,12 +78,13 @@ class rdcProtocol(serverProtocol.RDCServerProtocol):
         self.sendCutTextToClient(text)
 
     def _makeFramebuffer(self, width, height):
+        self.buffer_xy = (width, height)
         pix = QPixmap.grabWindow(QApplication.desktop( ).winId( ))
         pix = pix.scaled(width, height)
         if width >= self._maxWidth or height >= self._maxHeight:
             width  = self._maxWidth
             height = self._maxHeight
-        pix.save(self._buffer, 'jpeg')
+        pix.save(self._buffer, 'PNG') # 'jpeg')
         pixData = self._buffer.data( )
         self._array.clear( )
         self._buffer.close( )
