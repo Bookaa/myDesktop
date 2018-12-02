@@ -23,6 +23,10 @@ class RDCToGUI(clientProtocol.rdc):
         self.num = 0
         self.count = 0
 
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.request_upd)
+        self.timer.start(200)
+
     def connectionMade(self):
         self.factory.readyConnection(self)
 
@@ -35,7 +39,7 @@ class RDCToGUI(clientProtocol.rdc):
     def commitFramebufferUpdate(self, framebuffer):
         self.factory.display.updateFramebuffer(framebuffer)
         #self.framebufferUpdateRequest(width=self.factory.display.width, height=self.factory.display.height)
-        self.request_upd()
+        #self.request_upd()
 
     def request_upd(self):
         width=self.factory.display.width # * 4 / 5
@@ -123,8 +127,16 @@ class Display(QWidget):
 
     def keyPressEvent(self, event):
         key  = event.key( )
-        print(key)
-        flag = event.type( ) 
+        flag = event.type( )
+        print('key press %x=%d' % (key, key), flag) # flag = 6
+        if self.clientProtocol is None: return
+        self.clientProtocol.keyEvent(key, flag)
+        self.update( )
+
+    def keyReleaseEvent(self, event):
+        key  = event.key( )
+        flag = event.type( )
+        print('key release %x=%d' % (key, key), flag) # flag = 7
         if self.clientProtocol is None: return
         self.clientProtocol.keyEvent(key, flag)
         self.update( )
@@ -142,7 +154,7 @@ class Display(QWidget):
             return
 
         button = event.button( )
-        print(button)
+        print('mouse button', button)
         flag   = event.type( )
         if self.clientProtocol is None: return #self.clientProtocol = self.parent.client.clientProto
         self.clientProtocol.pointerEvent(x, y, button, flag)
@@ -179,8 +191,6 @@ class Display(QWidget):
         flag   = event.type( )
         if self.clientProtocol is None: return #self.clientProtocol = self.parent.client.clientProto
         self.clientProtocol.pointerEvent(x, y, button, flag)
-        if self.clientProtocol:
-            self.clientProtocol.request_upd()
 
     def resizeEvent(self, event):
         """

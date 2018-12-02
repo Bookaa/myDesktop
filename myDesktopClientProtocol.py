@@ -14,25 +14,26 @@ import base64
 class rdc(Protocol): 
     def __init__(self): 
         self._packet       = ""
-        self._expected_len = 0
-         
+        self.g_cnt = [0, 0]
+
     def _doClientInitialization(self):
         self.framebufferUpdateRequest(width=800, height=600)
         pass
 
     def dataReceived(self, data):
         self._packet += data
-        if self._expected_len == 0: 
-            buffer = data.split('@')
-            self._expected_len, self._packet = int(buffer[0]), "@".join(buffer[1:])
-        
-        if len(self._packet) == self._expected_len:
-            cmd = eval(self._packet)
-            for key in cmd.keys( ): 
+
+        buffer = self._packet.split('@')
+        _expected_len, buf2 = int(buffer[0]), "@".join(buffer[1:])
+
+        if len(buf2) >= _expected_len:
+            s1 = buf2[:_expected_len]
+            s2 = buf2[_expected_len:]
+            cmd = eval(s1)
+            for key in cmd.keys( ):
                 args = cmd[key]
-            
-            self._packet       = "" 
-            self._expected_len = 0 
+
+            self._packet       = s2
             self.handler(key, args)
 
     def _pack(self, message, **kw):
@@ -94,6 +95,7 @@ class rdc(Protocol):
             log.msg("unknown auth response (%d)\n" % auth)
 
     def _handleFramebufferUpdate(self, framebuffer):
+        self.g_cnt[0] = time.time()
         self.commitFramebufferUpdate(framebuffer)
 
     def vncAuthFailed(self, reason):
@@ -103,6 +105,11 @@ class rdc(Protocol):
     ## Client >> Server messages ##
     #-----------------------------#
     def framebufferUpdateRequest(self, width, height):
+        tm = time.time()
+        if tm < self.g_cnt[0] + 0.2 or tm < self.g_cnt[1] + 0.2:
+            print('skip send')
+            return
+        self.g_cnt[1] = tm
         self.transport.write(self._pack(msgTypes.FRAME_UPDATE, width=width, height=height))
         
     def keyEvent(self, key, flag):

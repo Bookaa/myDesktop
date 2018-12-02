@@ -210,12 +210,48 @@ class mac_Mouse:
     def screen_size(self):
         return CGDisplayPixelsWide(0), CGDisplayPixelsHigh(0)
 
+mac_special_keys = {
+    0x1000020 : 'Shift',
+    0x1000021 : 'Command',
+    0x1000022 : 'Control',
+    0x1000023 : 'Alternate',
+
+    0x1000000 : 'escape',
+    0x1000001 : 'tab',
+    0x1000003 : 'backspace',
+    0x1000004 : 'return',
+    0x1000007 : 'delete',
+    0x1000010 : 'home',
+    0x1000011 : 'end',
+    0x1000012 : 'left',
+    0x1000013 : 'up',
+    0x1000014 : 'right',
+    0x1000015 : 'down',
+    0x1000016 : 'pageup',
+    0x1000017 : 'pagedown',
+    #0x1000058 : 'insert'
+    0x1000024 : 'capslock',
+    0x1000030 : 'f1',
+}
+
 class mac_Keyboard:
+    def __init__(self):
+        from mac import PyKeyboard
+        self.k = PyKeyboard()
+
     def press(self, key):
-        pass
+        if key >= 0x1000000:
+            if key in mac_special_keys:
+                self.k.press_key(mac_special_keys[key])
+            return
+        self.k.press_key(chr(key))
 
     def release(self, key):
-        pass
+        if key >= 0x1000000:
+            if key in mac_special_keys:
+                self.k.release_key(mac_special_keys[key])
+            return
+        self.k.release_key(chr(key))
 
     def window(self):
         pass

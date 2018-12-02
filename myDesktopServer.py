@@ -36,15 +36,12 @@ class rdcProtocol(serverProtocol.RDCServerProtocol):
         self.mouse      = input.Mouse( )
         self.buffer_xy = (800,600)
 
-    def handleKeyEvent(self, key, flag=None):
-        '''
+    def handleKeyEvent(self, key, flag):
+        print('get keyevent', key, flag)
         if flag == 6:
             self.keyboard.press(key)
-        else flag == 7:
+        elif flag == 7:
             self.keyboard.release(key)
-        '''
-        self.keyboard.press(key)
-        self.keyboard.release(key)
 
     def handleMouseEvent(self, x, y, buttonmask=0, flag=None):
         (width, height) = self.buffer_xy
