@@ -218,9 +218,9 @@ mac_special_keys = {
 
     0x1000000 : 'escape',
     0x1000001 : 'tab',
-    0x1000003 : 'backspace',
+    0x1000003 : 'delete',
     0x1000004 : 'return',
-    0x1000007 : 'delete',
+    0x1000007 : 'backspace',
     0x1000010 : 'home',
     0x1000011 : 'end',
     0x1000012 : 'left',

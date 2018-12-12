@@ -5,42 +5,47 @@ This is RDC(Remote Desktop Control) protocol
 from twisted.internet.protocol import Protocol, Factory, ClientFactory 
 from twisted.python import log
 from message_defines import messageTypes as msgTypes
-import sys
-import os
+import os, sys, json
 import time
-import base64
 
 
 class rdc(Protocol): 
     def __init__(self): 
         self._packet       = ""
-        self.g_cnt = [0, 0]
 
     def _doClientInitialization(self):
-        self.framebufferUpdateRequest(width=800, height=600)
-        pass
+        self.framebufferUpdateRequest(-1)
 
     def dataReceived(self, data):
         self._packet += data
 
-        buffer = self._packet.split('@')
-        _expected_len, buf2 = int(buffer[0]), "@".join(buffer[1:])
+        while True:
+            pos = self._packet.find('@')
+            if pos == -1:
+                break
+            head, buf = self._packet[:pos], self._packet[pos+1:]
+            assert head.startswith('A_')
+            _, s1, s2 = head.split('_')
+            key = int(s1); _expected_len = int(s2)
+            if len(buf) < _expected_len:
+                break
+            s3, s4 = buf[:_expected_len], buf[_expected_len:]
+            self._packet = s4
 
-        if len(buf2) >= _expected_len:
-            s1 = buf2[:_expected_len]
-            s2 = buf2[_expected_len:]
-            cmd = eval(s1)
-            for key in cmd.keys( ):
-                args = cmd[key]
-
-            self._packet       = s2
+            if key == msgTypes.FRAME_UPDATE:
+                pos = s3.find('@')
+                assert pos != -1
+                s5, s6 = s3[:pos], s3[pos+1:]
+                args = json.loads(s5)
+                args['framebuffer'] = s6
+            else:
+                args = json.loads(s3)
             self.handler(key, args)
 
-    def _pack(self, message, **kw):
-        message = "{%s: %s}" % (message, kw)
-        message_len = len(message)
-        message = "%s@%s" % (message_len, message)
-        return message
+    def _pack(self, key_, **kw):
+        s = json.dumps(kw)
+        message_len = len(s)
+        return "B_%s_%s" % (key_, message_len) + '@' + s
 
     def handler(self, option, args): 
         #log.msg('handler')
@@ -49,7 +54,7 @@ class rdc(Protocol):
             self._handleAuth(**args)
 
         elif option == msgTypes.FRAME_UPDATE:
-            self._handleFramebufferUpdate(**args)
+            self.commitFramebufferUpdate(**args)
 
         elif option == msgTypes.COPY_TEXT:
             self.handleCopyText(**args)
@@ -94,23 +99,16 @@ class rdc(Protocol):
         else:
             log.msg("unknown auth response (%d)\n" % auth)
 
-    def _handleFramebufferUpdate(self, framebuffer):
-        self.g_cnt[0] = time.time()
-        self.commitFramebufferUpdate(framebuffer)
-
     def vncAuthFailed(self, reason):
         log.msg('Cannot connect: %s' % reason) 
 
     #-----------------------------#
     ## Client >> Server messages ##
     #-----------------------------#
-    def framebufferUpdateRequest(self, width, height):
-        tm = time.time()
-        if tm < self.g_cnt[0] + 0.2 or tm < self.g_cnt[1] + 0.2:
-            print('skip send')
-            return
-        self.g_cnt[1] = tm
-        self.transport.write(self._pack(msgTypes.FRAME_UPDATE, width=width, height=height))
+    def framebufferUpdateRequest(self, no):
+        s = self._pack(msgTypes.FRAME_UPDATE, no=no)
+        print('send complete', s)
+        self.transport.write(s)
         
     def keyEvent(self, key, flag):
         self.transport.write(self._pack(msgTypes.KEY_EVENT, key=key, flag=flag))
@@ -128,7 +126,7 @@ class rdc(Protocol):
     #----------------------------#
     ## Overiding on application ##
     #----------------------------#
-    def commitFramebufferUpdate(self, framebuffer):
+    def commitFramebufferUpdate(self, framebuffer, no, ref, width, height):
         pass
 
 class RDCFactory(ClientFactory):

@@ -4,9 +4,12 @@ from twisted.python import log
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
 import myDesktopClientProtocol as clientProtocol
-import qt4reactor
-import sys
-import os
+use_pip_install_qt4reactor = True
+if use_pip_install_qt4reactor:
+    from qtreactor import pyqt4reactor
+else:
+    import qt4reactor
+import os, sys
 
 log.startLogging(sys.stdout)
 
@@ -15,17 +18,14 @@ app = QApplication(sys.argv)
 __applib__  = os.path.dirname(os.path.realpath(__file__))
 __appicon__ = os.path.dirname(os.path.realpath(__file__))
 
-qt4reactor.install( )
+if use_pip_install_qt4reactor:
+    pyqt4reactor.install()
+else:
+    qt4reactor.install( )
 
 class RDCToGUI(clientProtocol.rdc):
     def __init__(self):
         clientProtocol.rdc.__init__(self)
-        self.num = 0
-        self.count = 0
-
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.request_upd)
-        self.timer.start(200)
 
     def connectionMade(self):
         self.factory.readyConnection(self)
@@ -36,17 +36,10 @@ class RDCToGUI(clientProtocol.rdc):
             password = inputbox( )
         self.sendPassword(password)
 
-    def commitFramebufferUpdate(self, framebuffer):
-        self.factory.display.updateFramebuffer(framebuffer)
-        #self.framebufferUpdateRequest(width=self.factory.display.width, height=self.factory.display.height)
-        #self.request_upd()
+    def commitFramebufferUpdate(self, framebuffer, no, ref, width, height):
+        no = self.factory.display.updateFramebuffer(framebuffer, no, ref, width, height)
+        self.framebufferUpdateRequest(no)
 
-    def request_upd(self):
-        width=self.factory.display.width # * 4 / 5
-        height=self.factory.display.height # * 4 / 5
-        width -= width % 8
-        height -= height % 8
-        self.framebufferUpdateRequest(width, height)
 
 class RDCFactory(clientProtocol.RDCFactory):
     def __init__(self, display=None, password=None, shared=0):
@@ -78,52 +71,60 @@ class Display(QWidget):
     def __init__(self, parent=None):
         super(Display, self).__init__(parent)
         self.resize(1390, 780)
-        #self._pixelmap          = QPixmap( )
-        self._remoteframebuffer = ""
-        self._clipboard         = QApplication.clipboard( )
+        self._clipboard = QApplication.clipboard( )
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
         self.clientProtocol = None
         self.parent = parent
-
-        #-------------------------------------#
-        ## Use QLabel or QPainter to display ##
-        #-------------------------------------#
-        #self.viewPort = QLabel(self)
-        #self.viewPort.setMaximumSize(self.size())
-        #self.viewPort.setMinimumSize(self.size())
+        self.his = []
 
     def readyDisplay(self, protocol):
         self.clientProtocol = protocol
-     
+
     def paintEvent(self, event):
         """
         paint frame buffer in widget
         """
-        if self._remoteframebuffer:
-            pm = QPixmap( )
-            #pm = self._pixelmap
-            pm.loadFromData(self._remoteframebuffer, format='PNG')
+        if self.his:
+            no, img = self.his[-1]
+            painter = QPainter(self)
+            painter.drawImage(0, 0, img)
 
-            self.width, self.height = self.size().width(), self.size().height()
-            width = self.width # * 4 / 5
-            height = self.height # * 4 / 5
-            width -= width % 8
-            height -= height % 8
-
-            x1, y1 = pm.size().width(), pm.size().height()
-            if True: #(x1, y1) == (width, height):
-                # print('xxx', pm.size(), self.size(), width, height)
-                painter = QPainter(self)
-                painter.drawPixmap(0, 0, pm)
-                #painter.drawPixmap(0, 0, pm.scaled(self.size( ), Qt.IgnoreAspectRatio))
         self.update( )
 
-    def updateFramebuffer(self, pixelmap):
-        self._remoteframebuffer = pixelmap
-        #self._pixelmap.loadFromData(pixelmap)
-        #self.viewPort.setPixmap(self._pixelmap)
-        #self.update( )
+    def updateFramebuffer(self, pixelmap, no, ref, width, height):
+        import zlib
+        bytes = zlib.decompress(pixelmap)
+        img2 = QImage(bytes, width, height, width * 3, QImage.Format_RGB888)
+
+        if ref == -1:
+            print('gen img with no ref', no)
+        else:
+            img1 = None
+            while self.his:
+                no1, img = self.his[0]
+                if no1 == ref:
+                    img1 = img
+                    break
+                self.his.pop(0)
+            if img1 is None:
+                print('fail to find ref', no)
+                self.his[:] = 0
+                return -1
+            assert img2.bytesPerLine() == img2.width() * 3
+            assert (img2.width(), img2.height()) == (img1.width(), img1.height())
+
+            pbuf1 = img1.bits().__int__()
+            pbuf2 = img2.bits().__int__()
+
+            #import hello
+            #hello.imgadd(pbuf1, pbuf2, img2.width(), img2.height())
+            #print('img ref success', no, ref)
+
+        self.his.append((no, img2))
+        if len(self.his) > 8:
+            self.his.pop(0)
+        return no
 
     def keyPressEvent(self, event):
         key  = event.key( )
@@ -233,9 +234,9 @@ class myDesktopViewer(QMainWindow):
         self.setCentralWidget(displayWidget)
 
     def connectionStart(self):
-        self.client = RDCFactory(display=self.display, password='1234')
-        reactor.connectTCP('127.0.0.1', 5000, self.client)
-        #reactor.connectTCP('192.168.0.104', 5000, self.client)
+        client = RDCFactory(display=self.display, password='1234')
+        reactor.connectTCP('127.0.0.1', 5000, client)
+        #reactor.connectTCP('192.168.0.101', 5000, client)
 
     def connectionStop(self):
         reactor.stop( )

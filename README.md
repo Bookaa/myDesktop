@@ -14,7 +14,7 @@ fix some bug on Mac OS.
 
 * pip install service_identity
 * pip install --upgrade google-auth-oauthlib
-
+* pip install qt4reactor
 
 myDesktop
 =========

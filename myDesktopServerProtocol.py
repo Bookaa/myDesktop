@@ -1,30 +1,36 @@
 #!/usr/bin/python
-from twisted.internet.protocol import Protocol, Factory
+from twisted.internet.protocol import Protocol, Factory, ClientFactory
 from twisted.python import log
 from message_defines import messageTypes as msgTypes
-import sys
+import sys, json
 log.startLogging(sys.stdout)
+
+flg_as_client = False
 
 class RDCServerProtocol(Protocol):
     def __init__(self):
         self._packet       = ""
-        self._expected_len = 0
         self.state   = "UNREGISTERED"
 
     def dataReceived(self, data):
-        try:
-            print(len(data), data)
-            buffer = data.split('@')
-            self._expected_len, data = int(buffer[0]), '@'.join(buffer[1:])
-            cmd = eval(data[:self._expected_len])
-            for key in cmd.keys( ):
-                args = cmd[key]
-            self._expected_len = 0
-            self.handler(option=key, args=args)
-        except:
-            self.doFramebufferUpdate(dict(width=800, height=800))
-            print('\33[31mError!\33[0m')
-            
+        self._packet += data
+
+        while True:
+            pos = self._packet.find('@')
+            if pos == -1:
+                break
+            head, buf = self._packet[:pos], self._packet[pos+1:]
+            assert head.startswith('B_')
+            _, s1, s2 = head.split('_')
+            key = int(s1); _expected_len = int(s2)
+            if len(buf) < _expected_len:
+                break
+            s3, s4 = buf[:_expected_len], buf[_expected_len:]
+            self._packet = s4
+
+            args = json.loads(s3)
+            self.handler(key, args)
+
     def handler(self, option, args):
         #log.msg('handler')
         if option == msgTypes.AUTHENTICATION:
@@ -51,6 +57,9 @@ class RDCServerProtocol(Protocol):
     def serverInitialization(self):
         pass
 
+    def handleScreenUpdate(self, **args):
+        self.transport.write(self._pack(msgTypes.FRAME_UPDATE, **args))
+
     def connectionMade(self):
         log.msg('connectionMade')
         if not self.factory.password:
@@ -73,14 +82,17 @@ class RDCServerProtocol(Protocol):
             self.transport.write(self._pack(msgTypes.AUTH_RESULT, block=2))
 
     def _pack(self, key, **kw):
-        message = "{%s: %s}" % (key, kw)
+        if key == msgTypes.FRAME_UPDATE:
+            framebuffer = kw['framebuffer']
+            del kw['framebuffer']
+            message = json.dumps(kw)
+            message_len = len(message) + 1 + len(framebuffer)
+            message = "A_%s_%s" % (key, message_len) + '@' + message + '@' + framebuffer
+            return message
+        message = json.dumps(kw)
         message_len = len(message)
-        message = "%s@%s" % (message_len, message)
+        message = "A_%s_%s" % (key, message_len) + '@' + message
         return message
-
-    def doFramebufferUpdate(self, width=1366, height=760): 
-        framebuffer = self._makeFramebuffer(width, height)
-        self.transport.write(self._pack(msgTypes.FRAME_UPDATE, framebuffer=framebuffer))
 
     def doKeyEvent(self, key, flag=1):
         self.handleKeyEvent(key, flag)
@@ -103,8 +115,13 @@ class RDCServerProtocol(Protocol):
         """
         self.transport(self._pack(msgTypes.CUT_TEXT, text=text))
         
-        
-class RDCFactory(Factory):
-    protocol = RDCServerProtocol
-    def __init__(self, password=None): 
-        self.password = password
+if flg_as_client:
+    class RDCFactory(ClientFactory):
+        protocol = RDCServerProtocol
+        def __init__(self, password=None):
+            self.password = password
+else:
+    class RDCFactory(Factory):
+        protocol = RDCServerProtocol
+        def __init__(self, password=None):
+            self.password = password
